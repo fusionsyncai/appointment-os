@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
+import { getPgPoolOptions, getRuntimeDatabaseUrl } from "@/lib/db/connection";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
@@ -8,25 +9,11 @@ const globalForPrisma = globalThis as unknown as {
   pgPool: pg.Pool | undefined;
 };
 
-function createPool() {
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not set");
-  }
-
-  return new pg.Pool({
-    connectionString,
-    ssl: connectionString.includes("supabase.com") ? { rejectUnauthorized: false } : undefined,
-  });
-}
-
 function createPrismaClient() {
-  const pool = globalForPrisma.pgPool ?? createPool();
+  const connectionString = getRuntimeDatabaseUrl();
+  const pool = globalForPrisma.pgPool ?? new pg.Pool(getPgPoolOptions(connectionString));
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.pgPool = pool;
-  }
+  globalForPrisma.pgPool = pool;
 
   const adapter = new PrismaPg(pool);
 
@@ -38,8 +25,6 @@ function createPrismaClient() {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;
 
 export type { Role, ActivityType, AppointmentStatus } from "@/generated/prisma/client";

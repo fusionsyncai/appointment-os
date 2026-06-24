@@ -25,8 +25,8 @@ Copy `.env.example` to `.env` and fill in values from **Supabase Dashboard → P
 
 | Variable | Supabase source | Purpose |
 |----------|-----------------|---------|
-| `DATABASE_URL` | Connection string → **Transaction pooler** (port 6543, `?pgbouncer=true`) | App runtime via `@prisma/adapter-pg` |
-| `DIRECT_URL` | Connection string → **Direct connection** (port 5432) | Prisma CLI (`db push`, migrations, seed) |
+| `DATABASE_URL` | **Transaction pooler** (port `6543`, user `postgres.[project-ref]`, `?pgbouncer=true`) | App runtime on Vercel/local via `@prisma/adapter-pg` |
+| `DIRECT_URL` | **Direct connection** (port `5432`, user `postgres`, host `db.[project-ref].supabase.co`) | Prisma CLI only (`db push`, migrations, seed) |
 | `AUTH_SECRET` | — | Random secret for Auth.js sessions |
 | `NEXT_PUBLIC_APP_URL` | — | Public HTTPS URL for Google Calendar webhooks only (ngrok in dev) |
 | `ENCRYPTION_KEY` | — | Min 32 chars — encrypts integration tokens |
@@ -53,6 +53,21 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Deploy to Vercel
+
+1. Push the repo and import it in Vercel.
+2. Set the same env vars as `.env.example` (especially `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`).
+3. Use the **Transaction pooler** string for `DATABASE_URL` (port `6543`, username `postgres.[project-ref]`).
+4. Do **not** use `DIRECT_URL` as `DATABASE_URL` on Vercel — serverless needs the pooler.
+
+If you see `Tenant or user not found`:
+
+- Copy the pooler hostname from Supabase Dashboard exactly (`aws-0` vs `aws-1` matters).
+- Ensure username is `postgres.[project-ref]`, not `postgres`.
+- Add `?pgbouncer=true` to `DATABASE_URL` (the app adds this automatically if missing).
+
+References: [Supabase Prisma troubleshooting](https://supabase.com/docs/guides/database/prisma/prisma-troubleshooting), [Prisma + Supabase](https://www.prisma.io/docs/orm/overview/databases/supabase).
 
 ## Scripts
 
