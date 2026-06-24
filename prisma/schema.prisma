@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum IntegrationProvider {
+  GOOGLE_CALENDAR
+  SLACK
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+}
+
+enum ActivityType {
+  CUSTOMER_CREATED
+  MEETING_BOOKED
+  MEETING_CANCELLED
+  INTEGRATION_CONNECTED
+  INTEGRATION_DISCONNECTED
+}
+
+model Agency {
+  id           String         @id @default(cuid())
+  name         String
+  logoUrl      String?
+  timezone     String         @default("UTC")
+  createdAt    DateTime       @default(now())
+  users        User[]
+  customers    Customer[]
+  appointments Appointment[]
+  integrations Integration[]
+  activities   Activity[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  agencyId      String
+  agency        Agency    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  role          Role      @default(ADMIN)
+  image         String?
+  createdAt     DateTime  @default(now())
+  accounts      Account[]
+  sessions      Session[]
+
+  @@index([agencyId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Customer {
+  id               String        @id @default(cuid())
+  agencyId         String
+  agency           Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  firstName        String
+  lastName         String
+  email            String
+  phone            String?
+  companyName      String?
+  notes            String?       @db.Text
+  lastActivityDate DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  appointments     Appointment[]
+
+  @@index([agencyId])
+  @@index([agencyId, email])
+}
+
+model Appointment {
+  id            String            @id @default(cuid())
+  agencyId      String
+  agency        Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  googleEventId String?
+  title         String
+  description   String?           @db.Text
+  startTime     DateTime
+  endTime       DateTime
+  status        AppointmentStatus @default(SCHEDULED)
+  meetingLink   String?
+  createdAt     DateTime          @default(now())
+
+  @@index([agencyId])
+  @@index([customerId])
+  @@index([agencyId, startTime])
+}
+
+model Integration {
+  id              String              @id @default(cuid())
+  agencyId        String
+  agency          Agency              @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  provider        IntegrationProvider
+  status          IntegrationStatus   @default(DISCONNECTED)
+  accessToken     String?             @db.Text
+  refreshToken    String?             @db.Text
+  metadata        Json?
+  calendarId      String?
+  workspaceName   String?
+  selectedChannel String?
+  lastSyncAt      DateTime?
+  totalSynced     Int                 @default(0)
+  connectedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([agencyId, provider])
+  @@index([agencyId])
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  agencyId    String
+  agency      Agency       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  type        ActivityType
+  description String
+  entityId    String?
+  actorName   String?
+  createdAt   DateTime     @default(now())
+
+  @@index([agencyId, createdAt])
+}
